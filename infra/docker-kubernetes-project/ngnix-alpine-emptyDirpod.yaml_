@@ -1,0 +1,11 @@
+
+
+
+
+
+
+
+
+
+# kubectl apply -f nginx-alpine-emptyDirpod.yaml
+# kubectl port-forward nginx-alpine-volume 8080:80

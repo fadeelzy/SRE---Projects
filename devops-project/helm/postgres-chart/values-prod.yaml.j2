@@ -1,0 +1,21 @@
+#values-prod.yaml
+namespace: prod
+
+postgres:
+  replicas: 1
+  image:
+    repository: "postgres"
+    tag: "14"
+  releaseName: "postgres-prod"
+
+postgresConfig:
+  db: "myappdb"
+  user: "appuser"
+  password: "apppassword"
+
+storage:
+  size: "5Gi"
+  storageClassName: "gp2-immediate"
+
+imagePullSecrets:
+  name: "nexus-credentials"

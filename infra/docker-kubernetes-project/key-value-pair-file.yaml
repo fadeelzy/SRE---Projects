@@ -1,0 +1,20 @@
+# defining Key/Value Pairs in a File
+
+enemies=aliens    # key/value pairs defined in a file named game.config
+lives=3
+enemies.cheat=true
+enemies.cheat.level=noGoodRotten   # Nested properties can be defined and assigned values
+
+# Create a ConfigMap using data from file
+ kubectl create configmap [cm-name] --from-file=[path-to-file]
+ kubectl create configmap [game-config] --from-file=[game.config]
+
+#Behind the scene
+apiVersion: v1
+kind: ConfigMap
+data:
+  game.conf: | -
+    enemies: aliens     #   Note that the file name is used as key for the values
+    lives: 3
+    enemies.cheat: true    # Your application can now work with the content just as it a normal config file
+    enemies.cheat.level: noGoodRotten

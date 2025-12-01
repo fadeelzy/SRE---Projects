@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata :
+  name: my-nginx
+  labels:
+    app: my-nginx
+    #tier: frontend
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      tier: my-nginx
+  template:
+    metadata:
+      labels:
+        tier: my-nginx
+    spec: # pod template
+      containers:
+        - name: my-nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          resources:
+            limits:
+              cpu: 200m
+              memory: "128Mi"
+            requests:
+              cpu: "200m" #200 millcpu .2 cpu  or 20% of the cpu
+              memory: 100Mi
+          livenessProbe:
+            httpGet:
+              path: /index.html
+              port: 80
+            initialDelaySeconds: 30
+            timeoutSeconds: 2
+            periodSeconds: 5
+            failureThreshold: 1
+
+
+## kubectl create -f ngnix-deployment.yml --save-config
+## kubectl get all
+## kubectl describe deployment  my-nginx
+## kubectl get deploy
+## kubectl get deployment
+## kubectl get deployments
+## kubectl get deployments --show-labels
+## kubectl get deployments  -l app=my-nginx
+## kubectl scale -f ngnix-deployment.yml --replicas=3
+## kubectl get all
+## kubectl delete deployment ngnix.deployment.yml
+## kubectl get all
+## kubectl apply -f ngnix-deployment.yml   update /create a resource
+## kubectl get all

@@ -1,0 +1,30 @@
+# This docker-compose file would be used on the Server to deploy  all the application/services
+version:3
+services:
+  my-app:
+    image:  6645e9b9f9f8.dkr.ecr.us-east-1.amazonaws.com/my-app:1.0 # private hub
+    ports:
+      - 3000:3000
+  mongodb:
+    image: mongo
+    ports:
+      - 27017:27017
+    volumes:
+      - ./data/web:/usr/share/nginx/html
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+  mongo-express:
+    image: mongo-express
+    ports:
+      - 8080:8081
+    volumes:
+      - ./data/web:/usr/share/nginx/html
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+
+## docker-compose -f mongo.yaaml up
+## docker-compose -f mongo.yaaml down
+## docker-compose ps
+## docker network ls

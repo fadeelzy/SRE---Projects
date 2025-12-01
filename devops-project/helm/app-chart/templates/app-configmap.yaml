@@ -1,0 +1,7 @@
+# Application ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-backend-config
+data:
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://{{ .Values.postgres.releaseName }}.{{ .Release.Namespace }}.svc.cluster.local:5432/{{ .Values.postgresConfig.db }}"

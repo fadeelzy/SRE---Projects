@@ -1,0 +1,27 @@
+# Defining an emptyDir volume
+apiVersion: v1
+kind: Pod
+spec:
+  volumes:          # Define initial Volume named "html" that is an emptyDir(lifetime of the Pod
+    - name: html
+      emptyDir: {}
+  containers:
+    - name: ngnix
+      image: ngnix:alpine
+      volumeMounts:  # Mount the emptyDir volume to the container
+        - name: html   # Reference "html" volume and define a mountPath
+          mountPath: /usr/share/nginx/html
+          readOnly: true
+    - name: html-updater
+      image: alpine
+      command: ["/bin/sh", "-c"]
+      args:
+        - while true; do date >> /html/index.html;
+          sleep 1; done   # Update file in Volume mount / html path with latest date every 10 seconds
+      volumeMounts:
+        - name: html    # Reference "html" volume (define above) and define a mountPath
+          mountPath: /html
+          readOnly: false
+
+
+

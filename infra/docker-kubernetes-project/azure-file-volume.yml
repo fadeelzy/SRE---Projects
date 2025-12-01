@@ -1,0 +1,32 @@
+# Defining an Azure File Volume
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  volumes:
+    - name:data  # Define initial Volum named "data" that is Azure File Storage
+      azureFile:
+        secretName: <azure-secret>
+        shareName: < share-name>
+        readOnly: false
+
+
+  containers:
+    - image:someimage
+      name: my-app
+      volumeMounts:
+        - name: data  # Reference "data" Volume and define a mount path
+          mountPath: /data/storage
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,17 @@
+# defining values in a ConfigMap Manifest
+
+
+apiVersioin: v1
+kind: ConfigMap   # A ConfigMap resource
+metadata:
+  name: app-settings   # Name of ConfigMap
+  labels: default
+    app: app-settings
+data:        # A ConfigMap data
+  enemies:aliens
+  lives: "3"
+  enemies.cheat: "true"
+  enemies.cheat.level: noGoodRotten
+
+  # create from a configMap manifest
+  # kubectl create -f configMap-manifest.yaml

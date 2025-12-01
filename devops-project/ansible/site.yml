@@ -1,0 +1,4 @@
+# site.yml
+- import_playbook: playbooks/install-controller.yml
+- import_playbook: playbooks/install-jenkins.yml
+- import_playbook: playbooks/eks-access.yml

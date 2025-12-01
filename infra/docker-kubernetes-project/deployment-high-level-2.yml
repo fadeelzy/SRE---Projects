@@ -1,0 +1,31 @@
+apiVersion: apps/v1        # kubectl API version and resource type (Deployment)
+kind: Deployment
+metadata :                # Metadata about Deployment
+  name: frontend
+  labels:                  # Labels for Deployment
+    app: my-nginx
+    tier: frontend
+spec:
+  selector:              # Select is used to "select" the template to use (based on labels)
+    matchLabels:
+      tier: frontend
+  template:             # template used to create the Pods / Container (note that the selector matches the labels)
+    metadata:
+      labels:
+        tier: frontend    # has to match with the selector "tier: frontend"
+        #app: my-nginx
+    spec:
+      containers:     # Containers that will run in the Pod
+        - name: my-nginx
+          image: nginx:alpine
+          livenessProbe: # Define liveliness probe   (readiness probes can also be defined)
+            httpGet: # HTTP GET request
+              path: /index.html
+              port: 80
+            initialDelaySeconds: 30
+            timeoutSeconds: 2
+            periodSeconds: 5
+            failureThreshold: 1
+
+
+##

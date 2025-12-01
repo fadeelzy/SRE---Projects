@@ -1,0 +1,14 @@
+# Creating a NodePort service
+apVersion: v1
+kind: Service
+metadata:
+  name: nodeport
+  namespace: default
+spec:
+  type: NodePort     # Set Service type to NodePort
+  selector:  # Select all the pods in the default namespace
+    app: nginx
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 31000  # Optionally set NodePort value (default is 30000-32767)

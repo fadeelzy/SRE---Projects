@@ -1,0 +1,27 @@
+#DOCKERFILE  - blueprint for building images
+FROM  ubuntu
+
+RUN   apt-get update
+RUN apt-get install ngnix -y
+
+CMD  ["ngnix","-g","daemon off;"]
+
+# RUN - execute any Linux  command
+#bluepring for building images
+#docker build .
+#docker build . -t nginx-ubuntu:1.0
+#docker images
+#docker ps -a | grep my-app
+#docker rm <container_id>
+#docker rmi <container_id>
+#docker images
+#docker ps -a
+#docker run -it <container_name> bash
+#docker run -it -p 9001:80 <container_name> bash
+#docker run -it -p 9001:80 a6
+#docker run -it -p  -d 9001:80 a6
+#docker exec -it <container_id> /bin/sh
+    # nginx -v
+    # ls
+    # env
+    # ls /home/app/

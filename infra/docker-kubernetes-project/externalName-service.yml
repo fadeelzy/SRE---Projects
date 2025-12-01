@@ -1,0 +1,13 @@
+# Creating a EXTERNAL service
+apVersion: v1
+kind: Service
+metadata:
+  name: externalName-service          # Other Pods can use this FQDN to access the external service
+  namespace: default
+spec:
+  type: ExternalNamme               # Set type to ExternalName
+  externalName:  api.acmecorp.com  # Service will proxy to FQDN
+  ports:
+    - port: 9000
+
+

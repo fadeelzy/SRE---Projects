@@ -1,0 +1,29 @@
+# Defining an AWS  Volume
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  volumes:
+    - name:data  # Define initial Volume named data that is a gcePersistentVolume
+      gcePersistentVolumeSource:
+        pdName: datastorage
+        fsType: ext4 # Define the file system type
+  containers:
+    - image:someimage
+      name: my-app
+      volumeMounts:
+        - name: data  # Reference "data" Volume and define a mount path
+          mountPath: /data/storage
+
+
+
+
+
+
+
+
+
+
+
+

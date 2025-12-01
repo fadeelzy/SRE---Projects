@@ -1,0 +1,19 @@
+#DOCKERFILE  - blueprint for building images
+FROM  alpine:3.6
+
+RUN   mkdir -p /home/app #  RUN Directory is created INSIDE the container NOT on laptop(host)
+COPY . home/app   # COPY Execute on the HOST machine
+CMD ["node","server.js"] # Execute on the container , CMD entrypoint command
+
+# RUN - execute any Linux  command
+#bluepring for building images
+#docker build -t my-app:1.0
+#docker build -t my-app:1.0
+#docker images
+#docker ps -a | grep my-app
+#docker rm <container_id>
+#docker rmi <container_id>
+#docker exec -it <container_id> /bin/sh
+    # ls
+    # env
+    # ls /home/app/

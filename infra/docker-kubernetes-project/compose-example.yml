@@ -1,0 +1,31 @@
+## https://docs.docker.com/get-started/08_using_compose/
+version:"3.7"
+services:
+  mongodb:
+    image: mongo
+    ports:
+      - 27017:27017
+    volumes:
+      - ./data/web:/usr/share/nginx/html
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+  mongo-express:
+    image: mongo-express
+    ports:
+      - 8080:8081
+    volumes:
+      - ./data/web:/usr/share/nginx/html
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=admin
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=password
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+
+
+## Docker compose takes care of creating a common Network
+## https://youtu.be/3c-iBn73dDE
+## docker-compose -f mongo.yaml up
+## docker-compose -f mongo.yaml down
+## docker-compose ps
+## docker network ls
+    -F FILE

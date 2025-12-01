@@ -1,0 +1,400 @@
+pipeline {
+    agent any
+
+    parameters {
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['dev', 'test', 'prod'],
+            description: 'Select the environment to deploy'
+        )
+    }
+
+    tools {
+        maven "Maven"
+        nodejs "NodeJS"
+    }
+
+    environment {
+
+        //Deployment environment
+        DEPLOY_ENV = "${params.ENVIRONMENT}" 
+
+        // Docker images
+        BACKEND_IMAGE = 'abdelrahmandevops/devops-backend'
+        FRONTEND_IMAGE = 'abdelrahmandevops/devops-frontend'
+        BUILD_TAG = "build-${env.BUILD_NUMBER}-${params.ENVIRONMENT}"
+
+        // Dashboard API
+        DASHBOARD_API_DEV = "http://dev.app.local/api/deployments"
+        DASHBOARD_API_TEST = "http://test.app.local/api/deployments"
+        DASHBOARD_API_PROD = "https://prod.app.local/api/deployments"
+
+        //Dashboard URL (for reference)
+        DASHBOARD_URL_DEV = "http://dev.app.local/app"
+        DASHBOARD_URL_TEST = "http://test.app.local/app"
+        DASHBOARD_URL_PROD = "https://prod.app.local/app"
+
+        // Docker Host
+        DOCKER_HOST = 'unix:///var/run/docker.sock'
+
+        // Docker Hub credentials
+        DOCKERHUB_USER = credentials('DockerHub_Credentials')
+        DOCKERHUB_PASS = credentials('DockerHub_Credentials')
+        
+        // Nexus credentials
+        NEXUS_USER = credentials('Nexus_Credentials')
+        NEXUS_PASS = credentials('Nexus_Credentials')
+
+        // Directories
+        EKS_DIR = "EKS/terraform"
+        TERRAFORM_DIR = "terraform/servers-setup"
+        ANSIBLE_DIR = "ansible"
+        HELM_DIR = "helm"
+
+        // SSH details
+        ANSIBLE_USER = "ec2-user"
+    }
+
+    stages {
+
+        stage ('Select Environment') {
+            steps {
+                script {
+                    if (DEPLOY_ENV == 'dev') {
+                        env.DASHBOARD_API = env.DASHBOARD_API_DEV
+                        env.DASHBOARD_URL = env.DASHBOARD_URL_DEV
+                    } else if (DEPLOY_ENV == 'test') {
+                        env.DASHBOARD_API = env.DASHBOARD_API_TEST
+                        env.DASHBOARD_URL = env.DASHBOARD_URL_TEST
+                    } else if (DEPLOY_ENV == 'prod') {
+                        env.DASHBOARD_API = env.DASHBOARD_API_PROD
+                        env.DASHBOARD_URL = env.DASHBOARD_URL_PROD
+                    }
+                    echo "Selected deployment environment: ${DEPLOY_ENV}"
+                    echo "Dashboard API set to: ${env.DASHBOARD_API}"
+                }
+            }
+            
+        }
+
+        stage('Clean Workspace') {
+            steps { cleanWs() }
+        }
+
+        stage('Checkout Code') {
+            steps {
+                checkout([$class: 'GitSCM',
+                    branches: [[name: 'main']],
+                    userRemoteConfigs: [[
+                        url: 'https://github.com/Eng-Abdelrahman-Ibrahim/aws-eks-devops-project.git',
+                        credentialsId: 'Github_Access'
+                    ]]
+                ])
+            }
+        }
+
+        stage('Build Backend Package') {
+            steps {
+                sh 'mvn clean package -DskipTests -f application/pom.xml'
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: 'application/target/*.jar', fingerprint: true
+                }
+            }
+        }
+
+        stage('Build Frontend') {
+            steps {
+                dir('application/frontend') {
+                    sh 'npm install'
+                    sh 'npm run build'
+                }
+                archiveArtifacts artifacts: 'application/frontend/build/**', fingerprint: true
+            }
+        }
+
+
+        stage('Run Backend Tests') {
+            steps {
+                dir('application') {
+                    script {
+                        // Bring up backend + db in detached mode
+                        sh 'docker compose up -d'
+
+                        // Run Python test container
+                        sh '''
+                            docker build -f Dockerfile.test -t backend-tests .
+                            docker run --rm --network application_default backend-tests
+                        '''
+
+                        // Tear down containers
+                        sh 'docker compose down'
+                    }
+                }
+            }
+        }
+
+        stage('Get AWS Info') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'AWS_Admin_User', // your Jenkins AWS credentials ID
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
+                    script {
+
+                        // Read Nexus registry URL from Ansible-created file
+                        env.NEXUS_REGISTRY = sh(
+                            script: "source /etc/profile.d/nexus_registry.sh && echo \$NEXUS_REGISTRY",
+                            returnStdout: true
+                        ).trim()
+                        echo "Nexus Registry URL: ${env.NEXUS_REGISTRY}"
+
+                        // Fetch Bastion public IP
+                        env.BASTION_IP = sh(
+                            script: """
+                                aws ec2 describe-instances \
+                                --filters "Name=tag:Name,Values=bastion" "Name=instance-state-name,Values=running" \
+                                --query "Reservations[0].Instances[0].PublicIpAddress" \
+                                --output text
+                            """,
+                            returnStdout: true
+                        ).trim()
+                        echo "Bastion Public IP: ${env.BASTION_IP}"
+
+                        // Fetch Ansible private IP
+                        env.ANSIBLE_PRIVATE_IP = sh(
+                            script: """
+                                aws ec2 describe-instances \
+                                --filters "Name=tag:Name,Values=ansible-control-machine" "Name=instance-state-name,Values=running" \
+                                --query "Reservations[0].Instances[0].PrivateIpAddress" \
+                                --output text
+                            """,
+                            returnStdout: true
+                        ).trim()
+                        echo "Ansible Private IP: ${env.ANSIBLE_PRIVATE_IP}"
+
+                        // Fetch Ansible instance ID
+                        env.ANSIBLE_INSTANCE_ID = sh(
+                            script: """
+                                aws ec2 describe-instances \
+                                --filters "Name=tag:Name,Values=ansible-control-machine" "Name=instance-state-name,Values=running" \
+                                --query "Reservations[0].Instances[0].InstanceId" \
+                                --output text
+                            """,
+                            returnStdout: true
+                        ).trim()
+                        echo "Ansible Instance ID: ${env.ANSIBLE_INSTANCE_ID}"
+                        
+                    }
+                }
+            }
+        }
+
+
+        stage('Docker Login') {
+            steps {
+                script {
+                    // Docker Hub login
+                    withCredentials([usernamePassword(credentialsId: 'DockerHub_Credentials', 
+                                                    usernameVariable: 'DOCKER_USER', 
+                                                    passwordVariable: 'DOCKER_PASS')]) {
+                        sh '''
+                            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin 
+                            docker info | grep Username 
+                        '''
+                    }
+
+                    // Nexus login
+                    withCredentials([usernamePassword(credentialsId: 'Nexus_Credentials', 
+                                                    usernameVariable: 'NEXUS_USER', 
+                                                    passwordVariable: 'NEXUS_PASS')]) {
+                        sh '''
+                            echo $NEXUS_PASS | docker login $NEXUS_REGISTRY -u $NEXUS_USER --password-stdin
+                            docker info | grep Server
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Build and Push Docker Images') {
+            steps {
+                script {
+
+                    // Build backend image
+                    sh """
+                        docker build -t ${BACKEND_IMAGE}:${BUILD_TAG} \
+                            --build-arg JAR_FILE=application/target/backend-app.jar ./application
+
+                    """
+
+                    // Build frontend image
+                    sh """
+                        docker build -t ${FRONTEND_IMAGE}:${BUILD_TAG} \
+                            --build-arg BUILD_DIR=application/frontend/build \
+                            --build-arg REACT_APP_API_URL=${DASHBOARD_API} \
+                            ./application/frontend
+                    """
+
+
+                    // === Push to Docker Hub ===
+                    sh """
+                        docker push ${BACKEND_IMAGE}:${BUILD_TAG}
+                        docker push ${FRONTEND_IMAGE}:${BUILD_TAG}
+                    """
+
+                    // If PROD, also tag and push "latest"
+                    if (params.ENVIRONMENT == "prod") {
+                        sh """
+                            docker tag ${BACKEND_IMAGE}:${BUILD_TAG} ${BACKEND_IMAGE}:latest
+                            docker tag ${FRONTEND_IMAGE}:${BUILD_TAG} ${FRONTEND_IMAGE}:latest
+
+                            docker push ${BACKEND_IMAGE}:latest
+                            docker push ${FRONTEND_IMAGE}:latest
+                        """
+                    }
+
+                    // === Push to Nexus ===
+                    sh """
+                        docker tag ${BACKEND_IMAGE}:${BUILD_TAG} ${NEXUS_REGISTRY}/repository/docker-hosted/devops-backend:${BUILD_TAG}
+                        docker push ${NEXUS_REGISTRY}/repository/docker-hosted/devops-backend:${BUILD_TAG}
+
+                        docker tag ${FRONTEND_IMAGE}:${BUILD_TAG} ${NEXUS_REGISTRY}/repository/docker-hosted/devops-frontend:${BUILD_TAG}
+                        docker push ${NEXUS_REGISTRY}/repository/docker-hosted/devops-frontend:${BUILD_TAG}
+                    """
+
+                    // If PROD, also push "latest" to Nexus
+                    if (params.ENVIRONMENT == "prod") {
+                        sh """
+                            docker tag ${BACKEND_IMAGE}:${BUILD_TAG} ${NEXUS_REGISTRY}/repository/docker-hosted/devops-backend:latest
+                            docker tag ${FRONTEND_IMAGE}:${BUILD_TAG} ${NEXUS_REGISTRY}/repository/docker-hosted/devops-frontend:latest
+
+                            docker push ${NEXUS_REGISTRY}/repository/docker-hosted/devops-backend:latest
+                            docker push ${NEXUS_REGISTRY}/repository/docker-hosted/devops-frontend:latest
+                        """
+                    }
+                }
+            }
+        }
+
+
+        stage('Deploy with Ansible via SSM') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'AWS_Admin_User',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
+                    script {
+                        sh """
+                            # Send SSM command
+                            aws ssm send-command \
+                                --targets "Key=InstanceIds,Values=${env.ANSIBLE_INSTANCE_ID}" \
+                                --document-name "AWS-RunShellScript" \
+                                --comment "Deploy Helm chart via Ansible" \
+                                --parameters 'commands=[
+                                    "export KUBECONFIG=/home/ec2-user/.kube/config",
+                                    "export PATH=\$PATH:/usr/local/bin",
+                                    "cd /home/ec2-user/ansible",
+                                    "ansible-playbook -i inventory/hosts.ini playbooks/deploy-helm.yml \
+                                    -e '\''deploy_env=${params.ENVIRONMENT}'\'' \
+                                    -e '\''namespace=app-${params.ENVIRONMENT}'\'' \
+                                    -e '\''build_tag=${BUILD_TAG}'\'' \
+                                    -v --force-handlers --skip-tags deprecation_warnings"
+                                ]' \
+                                --region us-east-1 \
+                                --output json > ssm_command.json
+
+                            # Get Command ID
+                            CMD_ID=\$(jq -r '.Command.CommandId' ssm_command.json)
+                            echo "SSM Command ID: \$CMD_ID"
+
+                            # Wait for command to finish
+                            STATUS="Pending"
+                            while [[ "\$STATUS" == "Pending" || "\$STATUS" == "InProgress" ]]; do
+                                sleep 5
+                                STATUS=\$(aws ssm get-command-invocation \
+                                    --command-id \$CMD_ID \
+                                    --instance-id ${env.ANSIBLE_INSTANCE_ID} \
+                                    --query 'Status' --output text)
+                                echo "SSM command status: \$STATUS"
+                            done
+
+                            # Print outputs
+                            echo "===== Ansible Output ====="
+                            aws ssm get-command-invocation \
+                                --command-id \$CMD_ID \
+                                --instance-id ${env.ANSIBLE_INSTANCE_ID} \
+                                --query 'StandardOutputContent' --output text
+
+                            echo "===== Ansible Error Output (warnings only) ====="
+                            aws ssm get-command-invocation \
+                                --command-id \$CMD_ID \
+                                --instance-id ${env.ANSIBLE_INSTANCE_ID} \
+                                --query 'StandardErrorContent' --output text
+
+                            # Count failed tasks
+                            FAILED_COUNT=\$(aws ssm get-command-invocation \
+                                --command-id \$CMD_ID \
+                                --instance-id ${env.ANSIBLE_INSTANCE_ID} \
+                                --query 'StandardOutputContent' --output text | grep -c 'failed=1' || true)
+
+                            if [[ "\$FAILED_COUNT" -eq 0 ]]; then
+                                echo "Ansible playbook completed successfully!"
+                            else
+                                echo "Ansible playbook reported \$FAILED_COUNT failed tasks!"
+                                exit 1
+                            fi
+                        """
+                    }
+
+                }
+            }
+        }
+
+
+
+    }
+
+    post {
+        always {
+
+            echo "Pipeline completed. Waiting 60 seconds before notifying dashboard..."
+            sleep 60  // wait for 60 seconds
+
+            script {
+                // Force environment to uppercase
+                def envUpper = (DEPLOY_ENV ?: "DEV").toUpperCase()
+
+                // Prepare JSON payload
+                def payload = """{
+                    "version": "${BUILD_TAG}",
+                    "environment": "${envUpper}",
+                    "success": ${currentBuild.currentResult == 'SUCCESS'},
+                    "notes": "Jenkins build ${env.BUILD_NUMBER} - ${currentBuild.currentResult}"
+                }"""
+
+                echo "Dashboard API: ${env.DASHBOARD_API}"
+                echo "Dashboard URL: ${env.DASHBOARD_URL}"
+
+                try {
+                    httpRequest(
+                        httpMode: 'POST',
+                        url: env.DASHBOARD_API,
+                        requestBody: payload,
+                        contentType: 'APPLICATION_JSON',
+                        validResponseCodes: '100:399'
+                    )
+                    echo "Dashboard notified successfully."
+                } catch (e) {
+                    echo "Failed to notify dashboard: ${e.getMessage()}"
+                }
+            }
+        }
+    }
+
+}

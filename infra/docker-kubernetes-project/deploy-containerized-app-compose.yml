@@ -1,0 +1,35 @@
+version:3
+services:
+  my-app:
+    image: 664574038682.drk.ecr.eu-central-1.amazonaws.com/my-app:1.0
+    ports:
+      - 3000:3000
+  mongodb:
+    image: mongo
+    ports:
+      - 27017:27017
+    volumes:
+      - mango-data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+  mongo-express:
+    image: mongo-express
+    ports:
+      - 8080:8081
+    volumes:
+      - mango-data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+
+
+# This docker-compose  file would be used on the server to deploy all the applications/services
+# Whenever we run the container , we lost our database
+
+## docker login
+##  Have docker file in the development server
+##  vim mongo.yaml
+## docker-compose -f mango.yaml up
+## docker network ls
+

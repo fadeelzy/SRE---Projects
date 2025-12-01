@@ -1,0 +1,38 @@
+#define a persistentVolumeClaim.yaml file
+kind: Pod
+apiVersion: v1
+metadata:
+  name:pv-dd-account-hdd-5g
+  labels:
+    name: storage
+spec:
+  containers:
+    - image : ngnix
+      name : az-c-01
+      command:
+        - /bin/sh
+        - -c
+        - while true; do echp $(date) >> /mnt/blobdisk/outfile; sleep 1; done;
+        volumeMounts:        # Mount to Volume
+          - name: blobdisk01
+            mountPath: /mnt/blobdisk
+
+    volume:    # Create Volume that binds to Persistent Volume  Claim
+      - name: blobdisk01
+        persistentVolumeClaim:
+          claimName: pv-dd-account-hdd-5g
+
+
+
+#https://github.com/kubernetes/examples:
+
+
+
+
+
+
+
+
+
+# kubectl apply -f nginx-alpine-emptyDirpod.yaml
+# kubectl port-forward nginx-alpine-volume 8080:80

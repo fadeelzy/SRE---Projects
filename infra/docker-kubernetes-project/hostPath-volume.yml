@@ -1,0 +1,25 @@
+# Defining an hostPath volume
+apiVersion: v1
+kind: Pod
+spec:
+  volumes:          #
+    - name: docker-socket  # define a socket volume on host that points to /var/run/docker.sock
+      hostPath:
+        path: /var/run/docker.sock
+        type: Socket
+  containers:
+    - name: docker
+      image: docker
+      command: ["sleep"]
+      args:[ "10000"]
+      volumeMounts:
+          - name: docker-socket
+            mountPath: /var/run/docker.sock  # Reference "docker-socker" volume and define mouthPath
+
+
+
+
+
+
+
+

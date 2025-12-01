@@ -1,0 +1,36 @@
+#DOCKERFILE  - blueprint for building images
+FROM  node:13-alpin
+
+ENV MONGO_DB_USERNAME = admin \
+    MONGO_DB_PASSWORD=password
+
+RUN   mkdir -p /home/app #  RUN Directory is created INSIDE the container NOT on laptop(host)
+COPY . home/app   # COPY Execute on the HOST machine
+CMD ["node","/home/app/server.js"] # Execute on the container , CMD entrypoint command
+
+# RUN - execute any Linux  command
+#bluepring for building images
+#docker build -t my-app:1.0   <location of dockefile>
+#docker build -t my-app:1.0   .
+#docker images
+#docker ps -a | grep my-app
+#docker rm <container_id>
+#docker rmi <image_id>
+#docker exec -it <container_id> /bin/sh or  /bin/bash
+    # ls
+    # env
+    # ls /home/app/
+
+## The name must be "Dockerfile"
+
+
+## App including DockerFile is committed to Git
+    # Localhost =====>   Git ======> Jenkins(Jenkins build Dockerfile (like we did) ======> push =====> Docker Repository
+        # ======> pull (tester) =======> Development Server
+
+
+
+
+
+
+

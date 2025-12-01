@@ -1,0 +1,23 @@
+# Defining an ExecAction Liveness Probe
+apiVersion: v1        # kubectl API version
+kind: Pod             # Type of kubernetes resource
+metadata :            # Metadata about the Pos
+  name: my-nginx
+  labels:              # Labels for the Pod
+    app: nginx
+    rel: stable
+spec:                 # The spec / blueprint of the Pod
+  containers:         # Information about the containers that will run in the Pod
+    - name: liveness
+      image: k8s.gcr.io/busybox
+      args:          # Define args for container
+        - /bin/sh
+        - -c
+        - touch /tmp/healthy; sleep 30
+          rm -rf touch /tmp/healthy; sleep 600
+     readiness:  # Define readiness probe
+        httpGet:
+          path: /index.html # check / index.html on port 80
+          port: 80
+        initialDelaySeconds:  2 # wait 2 seconds before starting
+        periodSeconds:        4  # check every 4 seconds

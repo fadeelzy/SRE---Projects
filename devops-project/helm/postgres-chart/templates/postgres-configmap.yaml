@@ -1,0 +1,10 @@
+# PostgreSQL ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: {{ .Release.Namespace }}
+data:
+  POSTGRES_DB: "myappdb"
+  POSTGRES_USER: "appuser"
+  POSTGRES_PASSWORD: "apppassword"

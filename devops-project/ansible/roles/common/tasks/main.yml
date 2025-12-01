@@ -1,0 +1,117 @@
+#ansible/roles/common/tasks/main.yml
+
+---
+- name: Update system packages
+  ansible.builtin.yum:
+    name: "*"
+    state: latest
+
+- name: Install Git
+  ansible.builtin.yum:
+    name: git
+    state: present
+
+- name: Install unzip
+  ansible.builtin.yum:
+    name: unzip
+    state: present
+
+- name: Install community.kubernetes collection
+  ansible.builtin.command:
+    cmd: ansible-galaxy collection install community.kubernetes
+    creates: /usr/share/ansible/collections/ansible_collections/community/kubernetes
+    
+# ========================================
+# DOCKER INSTALLATION FOR AMAZON LINUX 2023
+# ========================================
+
+- name: Install Docker (Amazon Linux 2023)
+  ansible.builtin.dnf: 
+    name:
+      - docker
+    state: present
+
+- name: Start and enable Docker service
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Add current user to docker group
+  ansible.builtin.user:
+    name: "{{ ansible_user | default('ec2-user') }}"
+    groups: docker
+    append: yes
+
+- name: Create docker group if it doesn't exist
+  ansible.builtin.group:
+    name: docker
+    state: present
+
+- name: Install AWS CLI v2
+  ansible.builtin.get_url:
+    url: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+    dest: "/tmp/awscliv2.zip"
+  register: awscli_download
+
+- name: Unzip AWS CLI
+  ansible.builtin.unarchive:
+    src: "/tmp/awscliv2.zip"
+    dest: "/tmp/"
+    remote_src: yes
+  when: awscli_download.changed
+
+- name: Install AWS CLI
+  command: /tmp/aws/install
+  args:
+    creates: /usr/local/bin/aws
+
+- name: Get AWS Account ID
+  shell: aws sts get-caller-identity --query Account --output text
+  register: aws_account_result
+
+- set_fact:
+    aws_account_id: "{{ aws_account_result.stdout }}"
+
+- name: Install kubectl
+  shell: |
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+  args:
+    creates: /usr/local/bin/kubectl
+
+- name: Install eksctl
+  shell: |
+    ARCH=amd64
+    PLATFORM=$(uname -s)_$ARCH
+    curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
+    tar -xzf eksctl_$PLATFORM.tar.gz -C /tmp
+    mv /tmp/eksctl /usr/local/bin
+  args:
+    creates: /usr/local/bin/eksctl
+
+- name: Install Helm
+  shell: |
+    curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    chmod 700 get_helm.sh
+    ./get_helm.sh
+  args:
+    creates: /usr/local/bin/helm
+
+- name: Get latest url for linux-amd64 release for aws-iam-authenticator
+  uri:
+    url: https://api.github.com/repos/kubernetes-sigs/aws-iam-authenticator/releases/latest
+    return_content: true
+    body_format: json
+  register: aws_auth_json
+
+- name: Download and install aws-iam-authenticator
+  ansible.builtin.get_url:
+    url: "{{ aws_auth_json.json | json_query('assets[?ends_with(name,`linux_amd64`)].browser_download_url | [0]') }}"
+    dest: /tmp/aws-iam-authenticator
+    mode: '0555'
+  
+- name: Move aws-iam-authenticator to bin directory
+  ansible.builtin.command:
+    cmd: mv /tmp/aws-iam-authenticator /usr/local/bin/aws-iam-authenticator
+    creates: /usr/local/bin/aws-iam-authenticator

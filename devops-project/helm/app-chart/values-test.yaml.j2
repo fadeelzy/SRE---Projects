@@ -1,0 +1,32 @@
+#values-test.yaml.j2
+namespace: test
+ingress:
+  host: test.app.local
+
+backend:
+  replicas: 2
+  image:
+    repository: "{{ nexus_registry_url }}/repository/docker-hosted/devops-backend"
+    tag: "{{ build_tag }}"
+
+frontend:
+  replicas: 2
+  image:
+    repository: "{{ nexus_registry_url }}/repository/docker-hosted/devops-frontend"
+    tag: "{{ build_tag }}"
+
+nginxLBHost: "{{ nginx_lb_hostname }}"
+
+configMapName: "app-config"
+secretName: "app-secrets"
+
+imagePullSecrets:
+  name: "nexus-credentials"
+
+postgresConfig:
+  db: "myappdb"
+  user: "appuser"
+  password: "apppassword"
+
+postgres:
+  releaseName: "postgres"

@@ -1,0 +1,32 @@
+# ansible/vars/main.yml
+
+# EKS Configuration
+eks_cluster_name: myapp-eks
+eks_region: us-east-1
+
+jenkins_plugins:
+  - git                         # Git SCM
+  - workflow-aggregator         # Pipeline
+  - pipeline-utility-steps      # archiveArtifacts, etc.
+  - credentials-binding         # for withCredentials
+  - plain-credentials           # for usernamePassword
+  - configuration-as-code       # manage Jenkins as code
+  - docker-plugin               # Docker support
+  - docker-workflow             # Docker in pipelines
+  - nodejs                      # NodeJS tool support
+  - maven-plugin                # Maven tool support
+  - aws-credentials             # AWS credentials binding
+  - http_request                # for httpRequest step
+  - ws-cleanup                  # cleanWs()
+  - blueocean                   # optional UI
+  - kubernetes                  # if you plan to integrate with K8s
+  - generic-webhook-trigger     # for webhook triggers
+  
+# Nexus Configuration
+nexus_docker_repo: "docker-hosted"
+backend_name: "devops-backend"
+frontend_name: "devops-frontend"
+
+# Application namespace
+# Application namespace (managed dynamically by Jenkins)
+# namespace=app-dev / app-test / app-prod will be passed

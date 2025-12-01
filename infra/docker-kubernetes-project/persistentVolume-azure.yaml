@@ -1,0 +1,29 @@
+#define a persistentVolume-azure.yaml file
+apiVerion: v1
+kind: PersistentVolume    # Create PersistentVolume Kind
+metadata:
+  name:my-pv
+spec:
+  capacity: 10Gi   # Define storage capacity
+  accessModes:
+    - ReadWriteOnce     # one client can mount for read/write
+    - ReadOnlyMany     # Many client can mount for reading
+  PersistentVolumeReclaimPolicy: Retain # Retain even after claim is deleted (not erased / deleted
+  azureFile:
+    secretName: <azure-secret>  # Reference storage to use cloud ,nfs
+    shareName: <name_from_azure>
+    readOnly: false
+
+
+#https://github.com/kubernetes/examples:
+
+
+
+
+
+
+
+
+
+# kubectl apply -f nginx-alpine-emptyDirpod.yaml
+# kubectl port-forward nginx-alpine-volume 8080:80

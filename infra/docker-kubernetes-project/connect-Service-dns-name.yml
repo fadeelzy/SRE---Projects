@@ -1,0 +1,12 @@
+apiVersion: v1        # kubectl API version
+kind: Service             # Type of kubernetes resource
+metadata :            # Metadata about the service
+  name: frontend     # Name of Service (each service gets a DNS entry)
+
+  .......
+apiVersion: v1        # kubectl API version
+kind: Service             # Type of kubernetes resource
+metadata :            # A frontend Pod can access a backend Pod using backend:port
+    name: backend
+
+##

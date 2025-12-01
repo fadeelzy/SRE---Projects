@@ -1,0 +1,13 @@
+# Creating a LoadBalancer service
+apVersion: v1
+kind: Service
+metadata:
+  .....
+spec:
+  type: LoadBalancer     # Set Service type to LoadBalancer (cloud-provider specific)
+  selector:  # Select all the pods in the default namespace
+    app: nginx
+  ports:
+    - port: 80
+      targetPort: 80
+

@@ -1,0 +1,34 @@
+#values-prod.yaml.j2
+namespace: prod
+ingress:
+  host: prod.app.local
+
+backend:
+  replicas: 2
+  image:
+    repository: "{{ nexus_registry_url }}/repository/docker-hosted/devops-backend"
+    tag: "latest"
+    pullPolicy: Always
+
+frontend:
+  replicas: 2
+  image:
+    repository: "{{ nexus_registry_url }}/repository/docker-hosted/devops-frontend"
+    tag: "latest"
+    pullPolicy: Always
+
+nginxLBHost: "{{ nginx_lb_hostname }}"
+
+configMapName: "app-config"
+secretName: "app-secrets"
+
+imagePullSecrets:
+  name: "nexus-credentials"
+
+postgresConfig:
+  db: "myappdb"
+  user: "appuser"
+  password: "apppassword"
+
+postgres:
+  releaseName: "postgres"

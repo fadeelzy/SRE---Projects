@@ -1,0 +1,53 @@
+# roles/k8s/tasks/main.yml
+---
+- name: Render Helm values for App
+  template:
+    src: "/home/ec2-user/helm/app-chart/values-{{ deploy_env }}.yaml.j2"
+    dest: "/home/ec2-user/helm/app-chart/values-{{ deploy_env }}.yaml"
+
+- name: Render Helm values for Postgres
+  template:
+    src: "/home/ec2-user/helm/postgres-chart/values-{{ deploy_env }}.yaml.j2"
+    dest: "/home/ec2-user/helm/postgres-chart/values-{{ deploy_env }}.yaml"
+
+- name: Deploy App Helm Chart
+  community.kubernetes.helm:
+    release_name: "app-{{ deploy_env }}"
+    chart_ref: /home/ec2-user/helm/app-chart
+    release_namespace: "{{ namespace }}"
+    values_files:
+      - "/home/ec2-user/helm/app-chart/values-{{ deploy_env }}.yaml"
+    create_namespace: yes
+    release_state: present
+
+- name: Deploy Postgres Helm Chart
+  community.kubernetes.helm:
+    release_name: "postgres-{{ deploy_env }}"
+    chart_ref: /home/ec2-user/helm/postgres-chart
+    release_namespace: "{{ namespace }}"
+    values_files:
+      - "/home/ec2-user/helm/postgres-chart/values-{{ deploy_env }}.yaml"
+    create_namespace: yes
+    release_state: present
+
+# Create Docker registry secret for Nexus
+- name: Create Nexus registry secret
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: nexus-credentials
+        namespace: "{{ namespace }}"
+      type: kubernetes.io/dockerconfigjson
+      stringData:
+        .dockerconfigjson: "{{ {'auths': { nexus_docker_registry: {'username': nexus_user, 'password': nexus_password, 'auth': (nexus_user + ':' + nexus_password)|b64encode } } } | to_nice_json }}"
+
+
+- name: Rolling restart App deployments
+  command: kubectl rollout restart deployment {{ item }} -n "{{ namespace }}"
+  loop:
+    - backend
+    - frontend
+
